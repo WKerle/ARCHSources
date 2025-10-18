@@ -104,7 +104,7 @@
         body.innerHTML = entries.map(e => `
           <tr>
             <td>
-              <button class="download-btn" onclick='downloadBib(${JSON.stringify(e)})'>⬇️</button>
+              <button class="download-btn" onclick='downloadBib(JSON.parse(decodeURIComponent("${encodeURIComponent(JSON.stringify(e))}")))'>⬇️</button>
             </td>
             <td>${e.type}</td>
             ${fieldsToShow.map(f => `<td>${(findField(e.fields, f) || "").replace(/\s+/g, " ")}</td>`).join("")}
