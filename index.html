@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BibTeX Viewer</title>
+  <title>BibTeX Viewer (No External Parser)</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
   <style>
@@ -18,8 +18,9 @@
   </style>
 </head>
 <body>
-  <h2>📚 BibTeX Viewer</h2>
+  <h2>📚 BibTeX Viewer (No External Parser)</h2>
   <p>Loading <code>references.bib</code> from repository...</p>
+
   <table id="bibTable" class="display nowrap" style="width:100%">
     <thead><tr id="tableHead"></tr></thead>
     <tbody id="tableBody"></tbody>
@@ -29,7 +30,6 @@
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bibtex-parse-js@1.0.12/bibtexParse.min.js"></script>
 
   <script>
     async function loadBib() {
@@ -38,24 +38,25 @@
         if (!res.ok) throw new Error(res.statusText);
         const text = await res.text();
 
-        const parsed = bibtexParse.toJSON(text);
-        if (!parsed.length) {
+        const entries = parseBibTeX(text);
+        if (!entries.length) {
           document.body.innerHTML += "<p>No entries found in references.bib</p>";
           return;
         }
 
-        const allFields = Array.from(new Set(parsed.flatMap(e => Object.keys(e.entryTags))));
+        const allFields = Array.from(new Set(entries.flatMap(e => Object.keys(e.fields))));
         const headRow = document.getElementById('tableHead');
         headRow.innerHTML = "<th>Type</th><th>Citation Key</th>" +
           allFields.map(f => `<th>${f}</th>`).join("");
         const body = document.getElementById('tableBody');
-        body.innerHTML = parsed.map(e => `
+        body.innerHTML = entries.map(e => `
           <tr>
-            <td>${e.entryType}</td>
-            <td>${e.citationKey}</td>
-            ${allFields.map(f => `<td>${(e.entryTags[f] || "").replace(/\n/g, " ")}</td>`).join("")}
+            <td>${e.type}</td>
+            <td>${e.key}</td>
+            ${allFields.map(f => `<td>${(e.fields[f] || "").replace(/\s+/g, " ")}</td>`).join("")}
           </tr>
         `).join("");
+
         $('#bibTable').DataTable({
           dom: 'Bfrtip',
           buttons: ['colvis'],
@@ -66,6 +67,26 @@
         document.body.innerHTML += "<p>Error loading .bib file: " + err + "</p>";
       }
     }
+
+    function parseBibTeX(text) {
+      const entries = [];
+      const entryRegex = /@(\w+)\s*\{\s*([^,]+),([\s\S]*?)\n\}/g;
+      let match;
+      while ((match = entryRegex.exec(text)) !== null) {
+        const type = match[1].trim();
+        const key = match[2].trim();
+        const body = match[3];
+        const fields = {};
+        const fieldRegex = /([\w\-]+)\s*=\s*\{([^}]*)\}/g;
+        let fmatch;
+        while ((fmatch = fieldRegex.exec(body)) !== null) {
+          fields[fmatch[1].trim()] = fmatch[2].trim();
+        }
+        entries.push({ type, key, fields });
+      }
+      return entries;
+    }
+
     loadBib();
   </script>
 </body>
