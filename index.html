@@ -24,22 +24,26 @@
     <thead><tr id="tableHead"></tr></thead>
     <tbody id="tableBody"></tbody>
   </table>
+
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bibtex-tidy@1.8.0/dist/bibtex-tidy.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bibtex-parse@2.0.1/dist/bibtexParse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bibtex-parse-js@1.0.12/bibtexParse.min.js"></script>
+
   <script>
     async function loadBib() {
       try {
         const res = await fetch('references.bib');
+        if (!res.ok) throw new Error(res.statusText);
         const text = await res.text();
-        const parsed = BibtexParse.toJSON(text);
+
+        const parsed = bibtexParse.toJSON(text);
         if (!parsed.length) {
           document.body.innerHTML += "<p>No entries found in references.bib</p>";
           return;
         }
+
         const allFields = Array.from(new Set(parsed.flatMap(e => Object.keys(e.entryTags))));
         const headRow = document.getElementById('tableHead');
         headRow.innerHTML = "<th>Type</th><th>Citation Key</th>" +
@@ -49,7 +53,7 @@
           <tr>
             <td>${e.entryType}</td>
             <td>${e.citationKey}</td>
-            ${allFields.map(f => `<td>${e.entryTags[f] || ""}</td>`).join("")}
+            ${allFields.map(f => `<td>${(e.entryTags[f] || "").replace(/\n/g, " ")}</td>`).join("")}
           </tr>
         `).join("");
         $('#bibTable').DataTable({
