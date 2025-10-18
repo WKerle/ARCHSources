@@ -101,16 +101,18 @@
         const fieldsToShow = ["doi", "author", "year", "title"];
         const body = document.getElementById('tableBody');
 
-        body.innerHTML = entries.map(e => `
+        // Generate table rows
+        body.innerHTML = entries.map((e, idx) => `
           <tr>
             <td>
-              <button class="download-btn" onclick='downloadBib(JSON.parse(decodeURIComponent("${encodeURIComponent(JSON.stringify(e))}")))'>⬇️</button>
+              <button class="download-btn" data-entry="${idx}">⬇️</button>
             </td>
             <td>${e.type}</td>
             ${fieldsToShow.map(f => `<td>${(findField(e.fields, f) || "").replace(/\s+/g, " ")}</td>`).join("")}
           </tr>
         `).join("");
 
+        // Initialize DataTable
         $('#bibTable').DataTable({
           paging: false,
           info: false,
@@ -118,6 +120,15 @@
           scrollCollapse: true,
           searching: true
         });
+
+        // Attach download handlers
+        document.querySelectorAll('.download-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = btn.getAttribute('data-entry');
+            downloadBib(entries[idx]);
+          });
+        });
+
       } catch (err) {
         document.body.innerHTML += "<p>Error loading .bib file: " + err + "</p>";
       }
@@ -152,7 +163,7 @@
       for (const [k, v] of Object.entries(entry.fields)) {
         bibContent += `  ${k} = {${v}},\n`;
       }
-      bibContent = bibContent.trim().replace(/,$/, ''); // Remove last comma
+      bibContent = bibContent.trim().replace(/,$/, '');
       bibContent += `\n}`;
 
       const blob = new Blob([bibContent], { type: 'text/plain' });
