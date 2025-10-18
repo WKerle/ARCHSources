@@ -6,18 +6,27 @@
   <title>BibTeX Viewer</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <style>
-    body {
-      font-family: system-ui, sans-serif;
-      padding: 2rem;
-      background: #fafafa;
-    }
-    table.dataTable {
-      width: 100% !important;
-    }
-    .dataTables_wrapper {
-      overflow-x: auto;
-    }
-  </style>
+  body {
+    font-family: system-ui, sans-serif;
+    padding: 2rem;
+    background: #fafafa;
+  }
+  table.dataTable {
+    width: 100% !important;
+  }
+  .dataTables_wrapper {
+    overflow-x: auto;
+  }
+  /* Limit Author column to 20% of screen width */
+  #bibTable th:nth-child(3),
+  #bibTable td:nth-child(3) {
+    max-width: 20vw; /* 20% of viewport width */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+
 </head>
 <body>
   <h2>📚 BibTeX Viewer</h2>
