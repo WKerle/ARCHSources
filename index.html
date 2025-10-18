@@ -6,36 +6,71 @@
   <title>BibTeX Viewer</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <style>
-  body {
-    font-family: system-ui, sans-serif;
-    padding: 2rem;
-    background: #fafafa;
-  }
-  table.dataTable {
-    width: 100% !important;
-  }
-  .dataTables_wrapper {
-    overflow-x: auto;
-  }
-  /* Limit Author column to 20% of screen width */
-  #bibTable th:nth-child(3),
-  #bibTable td:nth-child(3) {
-    max-width: 20vw; /* 20% of viewport width */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-</style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 2rem;
+      background: #fafafa;
+    }
 
+    h2 {
+      margin-bottom: 1rem;
+    }
+
+    table.dataTable {
+      width: 100% !important;
+    }
+
+    .dataTables_wrapper {
+      overflow-x: auto;
+    }
+
+    /* Limit all columns to max 20% of viewport width */
+    #bibTable th,
+    #bibTable td {
+      max-width: 20vw; /* 20% of viewport width */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Download button styling */
+    .download-btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background-color 0.2s ease;
+    }
+
+    .download-btn:hover {
+      background-color: #45a049;
+    }
+
+    /* Scrollable table container */
+    .table-container {
+      max-height: 75vh;
+      overflow-y: auto;
+    }
+
+    code {
+      background-color: #eee;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+  </style>
 </head>
 <body>
   <h2>📚 BibTeX Viewer</h2>
   <p>Loading <code>references.bib</code> from repository...</p>
 
-  <div style="max-height: 75vh; overflow-y: auto;">
+  <div class="table-container">
     <table id="bibTable" class="display nowrap" style="width:100%">
       <thead>
         <tr>
+          <th>Download</th>
           <th>Type</th>
           <th>DOI</th>
           <th>Author</th>
@@ -65,8 +100,12 @@
 
         const fieldsToShow = ["doi", "author", "year", "title"];
         const body = document.getElementById('tableBody');
+
         body.innerHTML = entries.map(e => `
           <tr>
+            <td>
+              <button class="download-btn" onclick='downloadBib(${JSON.stringify(e)})'>⬇️</button>
+            </td>
             <td>${e.type}</td>
             ${fieldsToShow.map(f => `<td>${(findField(e.fields, f) || "").replace(/\s+/g, " ")}</td>`).join("")}
           </tr>
@@ -106,6 +145,23 @@
     function findField(fields, name) {
       const possible = Object.keys(fields).find(k => k.toLowerCase().includes(name.toLowerCase()));
       return possible ? fields[possible] : "";
+    }
+
+    function downloadBib(entry) {
+      let bibContent = `@${entry.type}{${entry.key},\n`;
+      for (const [k, v] of Object.entries(entry.fields)) {
+        bibContent += `  ${k} = {${v}},\n`;
+      }
+      bibContent = bibContent.trim().replace(/,$/, ''); // Remove last comma
+      bibContent += `\n}`;
+
+      const blob = new Blob([bibContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${entry.key}.bib`;
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
     loadBib();
