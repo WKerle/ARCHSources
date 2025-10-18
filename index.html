@@ -86,6 +86,8 @@
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
   <script>
+    let bibEntries = []; // Global array to store all entries
+
     async function loadBib() {
       try {
         const res = await fetch('references.bib');
@@ -93,6 +95,7 @@
         const text = await res.text();
 
         const entries = parseBibTeX(text);
+        bibEntries = entries; // Store globally
         if (!entries.length) {
           document.body.innerHTML += "<p>No entries found in references.bib</p>";
           return;
@@ -101,12 +104,10 @@
         const fieldsToShow = ["doi", "author", "year", "title"];
         const body = document.getElementById('tableBody');
 
-        // Generate table rows
+        // Generate table rows with buttons referencing only the index
         body.innerHTML = entries.map((e, idx) => `
           <tr>
-            <td>
-              <button class="download-btn" data-entry="${idx}">⬇️</button>
-            </td>
+            <td><button class="download-btn" data-idx="${idx}">⬇️</button></td>
             <td>${e.type}</td>
             ${fieldsToShow.map(f => `<td>${(findField(e.fields, f) || "").replace(/\s+/g, " ")}</td>`).join("")}
           </tr>
@@ -124,8 +125,8 @@
         // Attach download handlers
         document.querySelectorAll('.download-btn').forEach(btn => {
           btn.addEventListener('click', () => {
-            const idx = btn.getAttribute('data-entry');
-            downloadBib(entries[idx]);
+            const idx = btn.getAttribute('data-idx');
+            downloadBib(bibEntries[idx]);
           });
         });
 
@@ -143,7 +144,7 @@
         const key = match[2].trim();
         const body = match[3];
         const fields = {};
-        const fieldRegex = /([\w\-]+)\s*=\s*\{([^}]*)\}/g;
+        const fieldRegex = /([\w\-]+)\s*=\s*\{([\s\S]*?)\}/g;
         let fmatch;
         while ((fmatch = fieldRegex.exec(body)) !== null) {
           fields[fmatch[1].trim().toLowerCase()] = fmatch[2].trim();
