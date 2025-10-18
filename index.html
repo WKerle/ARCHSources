@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BibTeX Viewer</title>
+
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 2rem;
+      background: #fafafa;
+    }
+    #bibInput {
+      margin-bottom: 1rem;
+    }
+    table.dataTable {
+      width: 100% !important;
+    }
+  </style>
+</head>
+<body>
+  <h2>📚 Local BibTeX Viewer</h2>
+  <p>Select your <code>.bib</code> file to view, sort & filter:</p>
+  <input type="file" id="bibInput" accept=".bib" />
+
+  <table id="bibTable" class="display nowrap" style="width:100%">
+    <thead>
+      <tr id="tableHead"></tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <!-- Dependencies -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+  <script src="https://unpkg.com/bibtex-parse-js@1.0.12/bibtexParse.js"></script>
+
+  <script>
+    const input = document.getElementById('bibInput');
+
+    input.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const text = await file.text();
+      const parsed = bibtexParse.toJSON(text);
+
+      if (!parsed.length) {
+        alert("No entries found in file.");
+        return;
+      }
+
+      // Collect all unique field names
+      const allFields = Array.from(
+        new Set(parsed.flatMap(entry => Object.keys(entry.entryTags)))
+      );
+
+      // Build table header
+      const headRow = document.getElementById('tableHead');
+      headRow.innerHTML = "<th>Type</th><th>Citation Key</th>" +
+        allFields.map(f => `<th>${f}</th>`).join("");
+
+      // Fill body
+      const body = document.getElementById('tableBody');
+      body.innerHTML = parsed.map(entry => {
+        const { entryType, citationKey, entryTags } = entry;
+        return `<tr>
+          <td>${entryType}</td>
+          <td>${citationKey}</td>
+          ${allFields.map(f => `<td>${entryTags[f] || ""}</td>`).join("")}
+        </tr>`;
+      }).join("");
+
+      // Initialize DataTable
+      $('#bibTable').DataTable({
+        dom: 'Bfrtip',
+        buttons: ['colvis'],
+        pageLength: 25,
+        scrollX: true,
+      });
+    });
+  </script>
+</body>
+</html>
