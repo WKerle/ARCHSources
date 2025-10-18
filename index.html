@@ -18,7 +18,7 @@
   </style>
 </head>
 <body>
-  <h2>📚 Local BibTeX Viewer</h2>
+  <h2>📚 BibTeX Viewer</h2>
   <p>Loading <code>references.bib</code> from repository...</p>
   <table id="bibTable" class="display nowrap" style="width:100%">
     <thead><tr id="tableHead"></tr></thead>
@@ -28,13 +28,14 @@
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
-  <script src="https://unpkg.com/bibtex-parse-js@1.0.12/bibtexParse.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bibtex-tidy@1.8.0/dist/bibtex-tidy.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bibtex-parse@2.0.1/dist/bibtexParse.min.js"></script>
   <script>
     async function loadBib() {
       try {
         const res = await fetch('references.bib');
         const text = await res.text();
-        const parsed = bibtexParse.toJSON(text);
+        const parsed = BibtexParse.toJSON(text);
         if (!parsed.length) {
           document.body.innerHTML += "<p>No entries found in references.bib</p>";
           return;
