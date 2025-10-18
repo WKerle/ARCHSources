@@ -11,15 +11,19 @@
       padding: 2rem;
       background: #fafafa;
     }
+
     h2 {
       margin-bottom: 1rem;
     }
+
     table.dataTable {
       width: 100% !important;
     }
+
     .dataTables_wrapper {
       overflow-x: auto;
     }
+
     /* Limit all columns to max 20% of viewport width */
     #bibTable th,
     #bibTable td {
@@ -28,6 +32,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
     /* Download button styling */
     .download-btn {
       background-color: #4CAF50;
@@ -39,50 +44,27 @@
       font-size: 0.9rem;
       transition: background-color 0.2s ease;
     }
+
     .download-btn:hover {
       background-color: #45a049;
     }
+
     /* Scrollable table container */
     .table-container {
       max-height: 75vh;
       overflow-y: auto;
     }
-    /* Input field styling */
-    .doi-input-container {
-      margin-bottom: 1rem;
-    }
-    .doi-input {
-      padding: 0.5rem;
-      width: 60%;
-      margin-right: 0.5rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    .doi-input:focus {
-      border-color: #4CAF50;
-    }
-    .add-btn {
-      background-color: #008CBA;
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-    .add-btn:hover {
-      background-color: #007B9E;
+
+    code {
+      background-color: #eee;
+      padding: 2px 4px;
+      border-radius: 3px;
     }
   </style>
 </head>
 <body>
   <h2>📚 BibTeX Viewer</h2>
   <p>Loading <code>references.bib</code> from repository...</p>
-
-  <div class="doi-input-container">
-    <input type="text" id="doiInput" class="doi-input" placeholder="Enter DOI (e.g., 10.1000/xyz123)" />
-    <button id="addBtn" class="add-btn">Add from DOI</button>
-  </div>
 
   <div class="table-container">
     <table id="bibTable" class="display nowrap" style="width:100%">
@@ -193,66 +175,6 @@
       a.click();
       URL.revokeObjectURL(url);
     }
-
-    async function addEntryFromDOI(doi) {
-      try {
-        const res = await fetch(`https://doi.org/${doi}`, {
-          headers: { 'Accept': 'application/x-bibtex' }
-        });
-
-        if (!res.ok) throw new Error('DOI not found or invalid');
-
-        const bibtex = await res.text();
-        const entries = parseBibTeX(bibtex);
-        if (entries.length === 0) throw new Error('No BibTeX entry found');
-
-        const newEntry = entries[0];
-        bibEntries.push(newEntry);
-        const body = document.getElementById('tableBody');
-        const idx = bibEntries.length - 1;
-        body.innerHTML += `
-          <tr>
-            <td><button class="download-btn" data-idx="${idx}">⬇️</button></td>
-            <td>${newEntry.type}</td>
-            <td>${findField(newEntry.fields, 'doi')}</td>
-            <td>${findField(newEntry.fields, 'author')}</td>
-            <td>${findField(newEntry.fields, 'year')}</td>
-            <td>${findField(newEntry.fields, 'title')}</td>
-          </tr>
-        `;
-
-        // Reinitialize DataTable to include new row
-        $('#bibTable').DataTable().destroy();
-        $('#bibTable').DataTable({
-          paging: false,
-          info: false,
-          scrollY: "70vh",
-          scrollCollapse: true,
-          searching: true
-        });
-
-        // Attach download handler to new button
-        document.querySelectorAll('.download-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const idx = btn.getAttribute('data-idx');
-            downloadBib(bibEntries[idx]);
-          });
-        });
-
-      } catch (err) {
-        alert(`Error adding entry: ${err.message}`);
-      }
-    }
-
-    document.getElementById('addBtn').addEventListener('click', () => {
-      const doi = document.getElementById('doiInput').value.trim();
-      if (doi) {
-        addEntryFromDOI(doi);
-        document.getElementById('doiInput').value = ''; // Clear input field
-      } else {
-        alert('Please enter a DOI.');
-      }
-    });
 
     loadBib();
   </script>
