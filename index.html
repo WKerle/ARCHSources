@@ -94,9 +94,9 @@
 
     #bibTable th.goto-column,
     #bibTable td.goto-column {
-      min-width: 5rem;
-      max-width: 5rem;
-      width: 5rem;
+      min-width: 3rem;
+      max-width: 3rem;
+      width: 3rem;
     }
 
     .goto-btn {
@@ -166,7 +166,7 @@
 
     async function loadConfig() {
       try {
-        const res = await fetch('viewer.config.json');
+        const res = await fetch('viewer.config.json?t=' + Date.now());
         if (!res.ok) throw new Error(res.statusText);
 
         const config = await res.json();
