@@ -14,6 +14,10 @@
 
     .toolbar {
       margin-bottom: 1rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     details.menu {
@@ -68,29 +72,28 @@
       background: #f4f4f4;
     }
 
-    h2 {
-      margin-bottom: 1rem;
-    }
-
     table.dataTable {
       width: 100% !important;
     }
 
     .dataTables_wrapper {
+      width: 100%;
+    }
+
+    .dataTables_wrapper .dataTables_scroll {
       overflow-x: auto;
     }
 
-    /* Limit all columns to max 20% of viewport width */
     #bibTable th,
     #bibTable td {
-      max-width: 20vw; /* 20% of viewport width */
+      max-width: 20vw;
+      min-width: 10rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    /* Download button styling */
-    .download-btn {
+    .goto-btn {
       background-color: #4CAF50;
       color: white;
       border: none;
@@ -101,20 +104,19 @@
       transition: background-color 0.2s ease;
     }
 
-    .download-btn:hover {
+    .goto-btn:hover {
       background-color: #45a049;
     }
 
-    /* Scrollable table container */
-    .table-container {
-      max-height: 75vh;
-      overflow-y: auto;
+    .goto-btn:disabled {
+      background-color: #b5b5b5;
+      cursor: not-allowed;
     }
 
-    code {
-      background-color: #eee;
-      padding: 2px 4px;
-      border-radius: 3px;
+    .table-container {
+      max-height: 75vh;
+      overflow: auto;
+      width: 100%;
     }
   </style>
 </head>
@@ -129,6 +131,7 @@
         </div>
       </div>
     </details>
+    <button id="downloadFullBibBtn" class="secondary-btn" type="button">Download full .bib</button>
   </div>
 
   <div class="table-container">
@@ -150,6 +153,7 @@
     };
 
     let bibEntries = [];
+    let bibText = "";
     let viewerConfig = { ...FALLBACK_CONFIG };
     let visibleFields = [...FALLBACK_CONFIG.defaultFields];
     let dataTableInstance = null;
@@ -183,9 +187,9 @@
 
         const res = await fetch('references.bib');
         if (!res.ok) throw new Error(res.statusText);
-        const text = await res.text();
+        bibText = await res.text();
 
-        const entries = parseBibTeX(text);
+        const entries = parseBibTeX(bibText);
         bibEntries = entries;
         if (!entries.length) {
           document.body.innerHTML += "<p>No entries found in references.bib</p>";
@@ -197,7 +201,7 @@
 
         renderFieldMenu();
         renderTable();
-
+        bindGlobalHandlers();
       } catch (err) {
         document.body.innerHTML += "<p>Error loading .bib file: " + err + "</p>";
       }
@@ -207,33 +211,44 @@
       const headRow = document.getElementById('tableHeadRow');
       const body = document.getElementById('tableBody');
 
+      // Destroy DataTable before replacing headers/cells so column updates apply right away.
+      if ($.fn.DataTable.isDataTable('#bibTable') && dataTableInstance) {
+        dataTableInstance.destroy();
+      }
+
       headRow.innerHTML = [
-        '<th>Download</th>',
+        '<th>Goto</th>',
         '<th>Type</th>',
         ...visibleFields.map(f => `<th>${formatFieldLabel(f)}</th>`)
       ].join('');
 
-      body.innerHTML = bibEntries.map((e, idx) => `
-        <tr>
-          <td><button class="download-btn" data-idx="${idx}">⬇️</button></td>
-          <td>${e.type}</td>
-          ${visibleFields.map(f => `<td>${(findField(e.fields, f) || "").replace(/\s+/g, " ")}</td>`).join("")}
-        </tr>
-      `).join('');
+      body.innerHTML = bibEntries.map((entry, idx) => {
+        const doiUrl = getDoiUrl(entry);
+        const gotoButton = doiUrl
+          ? `<button class="goto-btn" data-idx="${idx}" title="Open DOI target">Goto</button>`
+          : '<button class="goto-btn" disabled title="No DOI found">Goto</button>';
 
-      if ($.fn.DataTable.isDataTable('#bibTable')) {
-        dataTableInstance.destroy();
-      }
+        return `
+          <tr>
+            <td>${gotoButton}</td>
+            <td>${entry.type}</td>
+            ${visibleFields.map(f => `<td>${(findField(entry.fields, f) || "").replace(/\s+/g, " ")}</td>`).join("")}
+          </tr>
+        `;
+      }).join('');
 
       dataTableInstance = $('#bibTable').DataTable({
         paging: false,
         info: false,
         scrollY: '70vh',
+        scrollX: true,
         scrollCollapse: true,
-        searching: true
+        searching: true,
+        autoWidth: false,
+        destroy: true
       });
 
-      bindDownloadHandlers();
+      bindGotoHandlers();
     }
 
     function renderFieldMenu() {
@@ -259,13 +274,39 @@
       };
     }
 
-    function bindDownloadHandlers() {
-      document.querySelectorAll('.download-btn').forEach(btn => {
+    function bindGlobalHandlers() {
+      const fullBibBtn = document.getElementById('downloadFullBibBtn');
+      fullBibBtn.onclick = downloadFullBib;
+    }
+
+    function bindGotoHandlers() {
+      document.querySelectorAll('.goto-btn[data-idx]').forEach(btn => {
         btn.addEventListener('click', () => {
-          const idx = btn.getAttribute('data-idx');
-          downloadBib(bibEntries[idx]);
+          const idx = Number(btn.getAttribute('data-idx'));
+          const url = getDoiUrl(bibEntries[idx]);
+          if (!url) return;
+          window.open(url, '_blank', 'noopener');
         });
       });
+    }
+
+    function getDoiUrl(entry) {
+      const rawDoi = findField(entry.fields || {}, 'doi').trim();
+      if (!rawDoi) return "";
+      if (/^https?:\/\//i.test(rawDoi)) return rawDoi;
+      return `https://doi.org/${rawDoi}`;
+    }
+
+    function downloadFullBib() {
+      if (!bibText) return;
+
+      const blob = new Blob([bibText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'references.bib';
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
     function hydrateAvailableFields(entries) {
@@ -319,22 +360,6 @@
       return possible ? fields[possible] : "";
     }
 
-    function downloadBib(entry) {
-      let bibContent = `@${entry.type}{${entry.key},\n`;
-      for (const [k, v] of Object.entries(entry.fields)) {
-        bibContent += `  ${k} = {${v}},\n`;
-      }
-      bibContent = bibContent.trim().replace(/,$/, '');
-      bibContent += `\n}`;
-
-      const blob = new Blob([bibContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${entry.key}.bib`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
 
     loadBib();
   </script>
