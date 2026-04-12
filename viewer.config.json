@@ -1,0 +1,22 @@
+{
+  "availableFields": [
+    "doi",
+    "author",
+    "year",
+    "title",
+    "journal",
+    "booktitle",
+    "publisher",
+    "volume",
+    "number",
+    "pages",
+    "url"
+  ],
+  "defaultFields": [
+    "doi",
+    "author",
+    "year",
+    "title"
+  ]
+}
+

@@ -12,6 +12,62 @@
       background: #fafafa;
     }
 
+    .toolbar {
+      margin-bottom: 1rem;
+    }
+
+    details.menu {
+      display: inline-block;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 0.35rem 0.6rem;
+    }
+
+    details.menu summary {
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+    }
+
+    .menu-content {
+      margin-top: 0.65rem;
+      display: grid;
+      gap: 0.4rem;
+      min-width: 260px;
+    }
+
+    .field-list {
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      border-radius: 5px;
+      padding: 0.5rem;
+      background: #fafafa;
+    }
+
+    .field-list label {
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+
+    .menu-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .secondary-btn {
+      border: 1px solid #d0d0d0;
+      background: #fff;
+      border-radius: 5px;
+      padding: 0.35rem 0.6rem;
+      cursor: pointer;
+    }
+
+    .secondary-btn:hover {
+      background: #f4f4f4;
+    }
+
     h2 {
       margin-bottom: 1rem;
     }
@@ -63,17 +119,22 @@
   </style>
 </head>
 <body>
+  <div class="toolbar">
+    <details class="menu">
+      <summary>Columns</summary>
+      <div class="menu-content">
+        <div id="fieldMenu" class="field-list"></div>
+        <div class="menu-buttons">
+          <button id="resetColumnsBtn" class="secondary-btn" type="button">Reset to defaults</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
   <div class="table-container">
     <table id="bibTable" class="display nowrap" style="width:100%">
       <thead>
-        <tr>
-          <th>Download</th>
-          <th>Type</th>
-          <th>DOI</th>
-          <th>Author</th>
-          <th>Year</th>
-          <th>Title</th>
-        </tr>
+        <tr id="tableHeadRow"></tr>
       </thead>
       <tbody id="tableBody"></tbody>
     </table>
@@ -83,53 +144,155 @@
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
   <script>
-    let bibEntries = []; // Global array to store all entries
+    const FALLBACK_CONFIG = {
+      availableFields: ["doi", "author", "year", "title", "journal", "booktitle", "publisher", "volume", "number", "pages", "url"],
+      defaultFields: ["doi", "author", "year", "title"]
+    };
+
+    let bibEntries = [];
+    let viewerConfig = { ...FALLBACK_CONFIG };
+    let visibleFields = [...FALLBACK_CONFIG.defaultFields];
+    let dataTableInstance = null;
+
+    async function loadConfig() {
+      try {
+        const res = await fetch('viewer.config.json');
+        if (!res.ok) throw new Error(res.statusText);
+
+        const config = await res.json();
+        const available = uniqueLowercaseArray(config.availableFields);
+        let defaults = uniqueLowercaseArray(config.defaultFields);
+
+        const safeAvailable = available.length ? available : [...FALLBACK_CONFIG.availableFields];
+        defaults = defaults.filter(f => safeAvailable.includes(f));
+        if (!defaults.length) defaults = [...FALLBACK_CONFIG.defaultFields];
+
+        return {
+          availableFields: mergeUnique(safeAvailable, defaults),
+          defaultFields: defaults
+        };
+      } catch (err) {
+        console.warn('Failed to load viewer.config.json, using fallback config.', err);
+        return { ...FALLBACK_CONFIG };
+      }
+    }
 
     async function loadBib() {
       try {
+        viewerConfig = await loadConfig();
+
         const res = await fetch('references.bib');
         if (!res.ok) throw new Error(res.statusText);
         const text = await res.text();
 
         const entries = parseBibTeX(text);
-        bibEntries = entries; // Store globally
+        bibEntries = entries;
         if (!entries.length) {
           document.body.innerHTML += "<p>No entries found in references.bib</p>";
           return;
         }
 
-        const fieldsToShow = ["doi", "author", "year", "title"];
-        const body = document.getElementById('tableBody');
+        hydrateAvailableFields(entries);
+        visibleFields = [...viewerConfig.defaultFields];
 
-        // Generate table rows with buttons referencing only the index
-        body.innerHTML = entries.map((e, idx) => `
-          <tr>
-            <td><button class="download-btn" data-idx="${idx}">⬇️</button></td>
-            <td>${e.type}</td>
-            ${fieldsToShow.map(f => `<td>${(findField(e.fields, f) || "").replace(/\s+/g, " ")}</td>`).join("")}
-          </tr>
-        `).join("");
-
-        // Initialize DataTable
-        $('#bibTable').DataTable({
-          paging: false,
-          info: false,
-          scrollY: "70vh",
-          scrollCollapse: true,
-          searching: true
-        });
-
-        // Attach download handlers
-        document.querySelectorAll('.download-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const idx = btn.getAttribute('data-idx');
-            downloadBib(bibEntries[idx]);
-          });
-        });
+        renderFieldMenu();
+        renderTable();
 
       } catch (err) {
         document.body.innerHTML += "<p>Error loading .bib file: " + err + "</p>";
       }
+    }
+
+    function renderTable() {
+      const headRow = document.getElementById('tableHeadRow');
+      const body = document.getElementById('tableBody');
+
+      headRow.innerHTML = [
+        '<th>Download</th>',
+        '<th>Type</th>',
+        ...visibleFields.map(f => `<th>${formatFieldLabel(f)}</th>`)
+      ].join('');
+
+      body.innerHTML = bibEntries.map((e, idx) => `
+        <tr>
+          <td><button class="download-btn" data-idx="${idx}">⬇️</button></td>
+          <td>${e.type}</td>
+          ${visibleFields.map(f => `<td>${(findField(e.fields, f) || "").replace(/\s+/g, " ")}</td>`).join("")}
+        </tr>
+      `).join('');
+
+      if ($.fn.DataTable.isDataTable('#bibTable')) {
+        dataTableInstance.destroy();
+      }
+
+      dataTableInstance = $('#bibTable').DataTable({
+        paging: false,
+        info: false,
+        scrollY: '70vh',
+        scrollCollapse: true,
+        searching: true
+      });
+
+      bindDownloadHandlers();
+    }
+
+    function renderFieldMenu() {
+      const fieldMenu = document.getElementById('fieldMenu');
+      const resetBtn = document.getElementById('resetColumnsBtn');
+
+      fieldMenu.innerHTML = viewerConfig.availableFields.map(field => {
+        const checked = visibleFields.includes(field) ? 'checked' : '';
+        return `<label><input type="checkbox" value="${field}" ${checked}> ${formatFieldLabel(field)}</label>`;
+      }).join('');
+
+      fieldMenu.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', () => {
+          visibleFields = Array.from(fieldMenu.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.value);
+          renderTable();
+        });
+      });
+
+      resetBtn.onclick = () => {
+        visibleFields = [...viewerConfig.defaultFields];
+        renderFieldMenu();
+        renderTable();
+      };
+    }
+
+    function bindDownloadHandlers() {
+      document.querySelectorAll('.download-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = btn.getAttribute('data-idx');
+          downloadBib(bibEntries[idx]);
+        });
+      });
+    }
+
+    function hydrateAvailableFields(entries) {
+      const discoveredFields = entries.flatMap(e => Object.keys(e.fields || {}));
+      viewerConfig.availableFields = mergeUnique(viewerConfig.availableFields, discoveredFields);
+      viewerConfig.defaultFields = viewerConfig.defaultFields.filter(f => viewerConfig.availableFields.includes(f));
+      if (!viewerConfig.defaultFields.length) {
+        viewerConfig.defaultFields = [...viewerConfig.availableFields.slice(0, 4)];
+      }
+    }
+
+    function formatFieldLabel(fieldName) {
+      return fieldName
+        .replace(/[_\-]+/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function uniqueLowercaseArray(value) {
+      if (!Array.isArray(value)) return [];
+      const cleaned = value
+        .map(item => String(item).trim().toLowerCase())
+        .filter(Boolean);
+      return Array.from(new Set(cleaned));
+    }
+
+    function mergeUnique(primary, secondary) {
+      return Array.from(new Set([...(primary || []), ...(secondary || [])]));
     }
 
     function parseBibTeX(text) {
