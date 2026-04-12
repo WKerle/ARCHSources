@@ -1,9 +1,11 @@
 {
   "availableFields": [
+    "type",
     "doi",
     "author",
-    "year",
     "title",
+    "keywords",
+    "year",
     "journal",
     "booktitle",
     "publisher",
@@ -15,8 +17,8 @@
   "defaultFields": [
     "doi",
     "author",
-    "year",
-    "title"
+    "title",
+    "keywords"
   ]
 }
 

@@ -93,6 +93,13 @@
       text-overflow: ellipsis;
     }
 
+    #bibTable th.goto-column,
+    #bibTable td.goto-column {
+      min-width: 5rem;
+      max-width: 5rem;
+      width: 5rem;
+    }
+
     .goto-btn {
       background-color: #4CAF50;
       color: white;
@@ -148,8 +155,8 @@
 
   <script>
     const FALLBACK_CONFIG = {
-      availableFields: ["doi", "author", "year", "title", "journal", "booktitle", "publisher", "volume", "number", "pages", "url"],
-      defaultFields: ["doi", "author", "year", "title"]
+      availableFields: ["type", "doi", "author", "title", "keywords", "year", "journal", "booktitle", "publisher", "volume", "number", "pages", "url"],
+      defaultFields: ["doi", "author", "title", "keywords"]
     };
 
     let bibEntries = [];
@@ -217,8 +224,7 @@
       }
 
       headRow.innerHTML = [
-        '<th>Goto</th>',
-        '<th>Type</th>',
+        '<th class="goto-column">Goto</th>',
         ...visibleFields.map(f => `<th>${formatFieldLabel(f)}</th>`)
       ].join('');
 
@@ -230,9 +236,8 @@
 
         return `
           <tr>
-            <td>${gotoButton}</td>
-            <td>${entry.type}</td>
-            ${visibleFields.map(f => `<td>${(findField(entry.fields, f) || "").replace(/\s+/g, " ")}</td>`).join("")}
+            <td class="goto-column">${gotoButton}</td>
+            ${visibleFields.map(f => `<td>${getFieldDisplayValue(entry, f)}</td>`).join("")}
           </tr>
         `;
       }).join('');
@@ -297,6 +302,13 @@
       return `https://doi.org/${rawDoi}`;
     }
 
+    function getFieldDisplayValue(entry, fieldName) {
+      if (fieldName === 'type') {
+        return (entry.type || '').replace(/\s+/g, ' ');
+      }
+      return (findField(entry.fields || {}, fieldName) || '').replace(/\s+/g, ' ');
+    }
+
     function downloadFullBib() {
       if (!bibText) return;
 
@@ -311,7 +323,7 @@
 
     function hydrateAvailableFields(entries) {
       const discoveredFields = entries.flatMap(e => Object.keys(e.fields || {}));
-      viewerConfig.availableFields = mergeUnique(viewerConfig.availableFields, discoveredFields);
+      viewerConfig.availableFields = mergeUnique(viewerConfig.availableFields, ['type', ...discoveredFields]);
       viewerConfig.defaultFields = viewerConfig.defaultFields.filter(f => viewerConfig.availableFields.includes(f));
       if (!viewerConfig.defaultFields.length) {
         viewerConfig.defaultFields = [...viewerConfig.availableFields.slice(0, 4)];
